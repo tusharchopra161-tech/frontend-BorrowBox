@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 // import Layout from './components/Layout.jsx'
 // import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
-import Signup from './pages/Signup.jsx'
+import Signup from './pages/Signup.js'
 import Landing from './pages/Landing.jsx'
 
 export default function App(){
