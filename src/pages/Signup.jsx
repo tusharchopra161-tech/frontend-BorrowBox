@@ -44,29 +44,12 @@ export default function Signup() {
         setError('')
         setIsSubmitting(true)
 
-        try {
-            const data = await api.signup({
-                name,
-                email,
-                password: form.password
-            })
-            localStorage.setItem('user', JSON.stringify(data.user))
-            navigate('/dashboard', { replace: true })
-        } catch (submitError) {
-            setError(
-                submitError instanceof Error
-                    ? submitError.message
-                    : 'Unable to create your account. Please try again.',
-            )
-        } finally {
-            setIsSubmitting(false)
-        }
     }
 
     return (
         <main>
             <header>
-                <Link to="/" aria-label="AttenTrack home">AttenTrack</Link>
+                <Link to="/" aria-label="BorrowBox">AttenTrack</Link>
             </header>
 
             <section aria-labelledby="signup-title">

@@ -45,31 +45,6 @@ export default function Signup() {
         setError('')
         setIsSubmitting(true)
 
-        try {
-            const data = await api.signup({
-                name,
-                email,
-                password: form.password,
-                role: form.role,
-                department,
-            })
-
-            if (!data?.token || !data?.user || typeof data.user !== 'object') {
-                throw new Error('The server returned an invalid sign-up response. Please try again.')
-            }
-
-            localStorage.setItem('token', data.token)
-            localStorage.setItem('user', JSON.stringify(data.user))
-            navigate('/dashboard', { replace: true })
-        } catch (submitError) {
-            setError(
-                submitError instanceof Error
-                    ? submitError.message
-                    : 'Unable to create your account. Please try again.',
-            )
-        } finally {
-            setIsSubmitting(false)
-        }
     }
 
     return (
