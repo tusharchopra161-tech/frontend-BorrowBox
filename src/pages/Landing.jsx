@@ -5,11 +5,11 @@ export default function Landing() {
         <main>
             <header>
                 <Link to="/" aria-label="BorrowBox">BorrowBox</Link>
-                <nav aria-label="Main navigation">
+                {/* <nav aria-label="Main navigation">
                     <Link to="/login">Log in</Link>
                     {' '}
                     <Link to="/signup">Create account</Link>
-                </nav>
+                </nav> */}
             </header>
 
         </main>

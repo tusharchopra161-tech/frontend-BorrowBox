@@ -2,12 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 // import { api } from '../services/api.js'
 
+const backendAPI = "https://backend-borrowbox.onrender.com"
 export default function Signup() {
     const [form, setForm] = useState({
-        name: '',
+        fullname: '',
         email: '',
         password: '',
         confirmPassword: '',
+        role: ''
     })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [error, setError] = useState('')
@@ -25,7 +27,7 @@ export default function Signup() {
 
         const name = form.name.trim()
         const email = form.email.trim().toLowerCase()
-        
+
         if (!name || !email) {
             setError('Please complete all fields.')
             return
@@ -45,12 +47,13 @@ export default function Signup() {
         setIsSubmitting(true)
 
         try {
-            const data = await api.signup({
-                name,
-                email,
-                password: form.password
-            })
-            localStorage.setItem('user', JSON.stringify(data.user))
+            console.log(form)
+            const response = await fetch(`${backendAPI}/api/createuser`, {
+                method: "POST", headers: { "Content-Type": "application/json", },
+                body: JSON.stringify(form),
+            }
+            );
+            console.log(response)
             navigate('/dashboard', { replace: true })
         } catch (submitError) {
             setError(
@@ -112,7 +115,7 @@ export default function Signup() {
                         minLength={8}
                         disabled={isSubmitting}
                     />
-                    
+
 
                     <label >Confirm password</label>
                     <input
@@ -126,7 +129,17 @@ export default function Signup() {
                         minLength={8}
                         disabled={isSubmitting}
                     />
-
+                    <select
+                        className="signup-input signup-select"
+                        id="signup-role"
+                        name="role"
+                        value={form.role}
+                        onChange={handleChange}
+                        required
+                    >
+                        <option value="user">User Borrower</option>
+                        <option value="owner">Owner</option>
+                    </select>
 
 
 
