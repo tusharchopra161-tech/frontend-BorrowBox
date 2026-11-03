@@ -4,11 +4,15 @@ import {
     createItem,
     getCurrentUser,
     getHistory,
+    listIncomingBookings,
     listOwnerItems,
+    confirmBookingStep,
     removeItem,
+    respondToBooking,
     toggleItemStatus,
     updateItem,
 } from '../services/api.js'
+import './ownerDashboard.css'
 
 const blankItem = (location = '') => ({
     title: '',
@@ -20,17 +24,34 @@ const blankItem = (location = '') => ({
     rules: '',
 })
 
+function getHistoryDate(entry) {
+    if (entry.startDate && entry.endDate) return `${entry.startDate} to ${entry.endDate}`
+    return entry.date ?? ''
+}
+
 function getDashboardData() {
     try {
-        return { profile: getCurrentUser(), items: listOwnerItems(), history: getHistory(), error: '' }
+        return {
+            profile: getCurrentUser(),
+            items: listOwnerItems(),
+            history: getHistory(),
+            bookings: listIncomingBookings(),
+            error: '',
+        }
     } catch (loadError) {
-        return { profile: getCurrentUser(), items: [], history: { borrowed: [], lending: [] }, error: loadError.message }
+        return {
+            profile: getCurrentUser(),
+            items: [],
+            history: { borrowed: [], lending: [] },
+            bookings: [],
+            error: loadError.message,
+        }
     }
 }
 
 export default function OwnerDashboard() {
     const [dashboard, setDashboard] = useState(getDashboardData)
-    const { profile, items, history } = dashboard
+    const { profile, items, history, bookings } = dashboard
     const [form, setForm] = useState(blankItem(profile?.location))
     const [editingId, setEditingId] = useState(null)
     const [showForm, setShowForm] = useState(false)
@@ -124,10 +145,27 @@ export default function OwnerDashboard() {
         }
     }
 
+    const handleBookingAction = (action, bookingId) => {
+        try {
+            if (action === 'approved' || action === 'rejected') {
+                respondToBooking(bookingId, action)
+                setNotice(action === 'approved' ? 'Booking request approved.' : 'Booking request rejected.')
+            } else {
+                confirmBookingStep(bookingId, action)
+                setNotice(action === 'handover' ? 'Handover confirmed.' : 'Return confirmed.')
+            }
+            refresh()
+            setError('')
+        } catch (actionError) {
+            setError(actionError.message)
+            setNotice('')
+        }
+    }
+
     const activeCount = items.filter((item) => item.status === 'active').length
 
     return (
-        <div>
+        <main>
             <header>
                 <div>
                     <p>OWNER DASHBOARD</p>
@@ -238,6 +276,50 @@ export default function OwnerDashboard() {
                 )}
             </section>
 
+            <section>
+                <h2>Incoming booking requests</h2>
+                <p>Requested dates are pending until you approve them. Approved dates block overlapping bookings.</p>
+                {bookings.length ? bookings.map((booking) => (
+                    <article key={booking.id}>
+                        <h3>{booking.title}</h3>
+                        <p>Borrower: {booking.borrowerName}</p>
+                        <p>Requested dates: {booking.startDate} to {booking.endDate}</p>
+                        <p>Status: {booking.status === 'requested' ? 'Requested (pending)' : booking.status}</p>
+                        <p>Message: {booking.message}</p>
+                        {booking.decidedBy && <p>Decision recorded by {booking.decidedBy.name}</p>}
+                        {booking.handoverConfirmedBy && (
+                            <p>Handover confirmed by {booking.handoverConfirmedBy.name}</p>
+                        )}
+                        {booking.returnConfirmedBy && (
+                            <p>Return confirmed by {booking.returnConfirmedBy.name}</p>
+                        )}
+                        {booking.status === 'requested' && (
+                            <div>
+                                <button type="button" onClick={() => handleBookingAction('approved', booking.id)}>
+                                    Approve
+                                </button>
+                                <button type="button" onClick={() => handleBookingAction('rejected', booking.id)}>
+                                    Reject
+                                </button>
+                            </div>
+                        )}
+                        {booking.status === 'approved' && (
+                            <button type="button" onClick={() => handleBookingAction('handover', booking.id)}>
+                                Confirm handover
+                            </button>
+                        )}
+                        {booking.status === 'handed-over' && (
+                            <button type="button" onClick={() => handleBookingAction('return', booking.id)}>
+                                Confirm return
+                            </button>
+                        )}
+                        {booking.rating && (
+                            <p>Borrower rating: {booking.rating} out of 5{booking.feedback ? ` — ${booking.feedback}` : ''}</p>
+                        )}
+                    </article>
+                )) : <p>No incoming booking requests yet.</p>}
+            </section>
+
             <div>
                 <section>
                     <p>YOUR ACCOUNT</p>
@@ -252,17 +334,22 @@ export default function OwnerDashboard() {
                     <div>
                         <h3>Lending</h3>
                         {history.lending.length ? history.lending.map((entry, index) => (
-                            <p key={entry.id ?? index}>{entry.title} <span>{entry.date ?? entry.status}</span></p>
+                            <p key={entry.id ?? index}>
+                                {entry.title} {getHistoryDate(entry)} {entry.status}
+                                {entry.rating ? ` - Rating: ${entry.rating}/5` : ''}
+                            </p>
                         )) : <p>No lending history yet.</p>}
                     </div>
                     <div>
                         <h3>Borrowing</h3>
                         {history.borrowed.length ? history.borrowed.map((entry, index) => (
-                            <p key={entry.id ?? index}>{entry.title} <span>{entry.date ?? entry.status}</span></p>
+                            <p key={entry.id ?? index}>
+                                {entry.title} {getHistoryDate(entry)} {entry.status}
+                            </p>
                         )) : <p>No borrowing history yet.</p>}
                     </div>
                 </section>
             </div>
-        </div>
+        </main>
     )
 }

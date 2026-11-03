@@ -1,0 +1,28 @@
+main {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 16px;
+}
+
+main section {
+    margin-bottom: 24px;
+}
+
+main article {
+    border: 1px solid #cccccc;
+    margin: 16px 0;
+    padding: 16px;
+}
+
+main label {
+    display: block;
+    margin: 12px 0;
+}
+
+main input,
+main select,
+main textarea {
+    display: block;
+    max-width: 100%;
+    padding: 6px;
+}

@@ -1,6 +1,7 @@
 const USERS_KEY = 'borrowbox.users'
 const SESSION_KEY = 'borrowbox.session'
 const ITEMS_KEY = 'borrowbox.items'
+const BOOKINGS_KEY = 'borrowbox.bookings'
 
 const demoUser = {
     id: 'demo-owner',
@@ -139,6 +140,177 @@ export function listAvailableItems() {
     return readStorage(ITEMS_KEY, []).filter((item) => item.status === 'active')
 }
 
+function dateRangesOverlap(firstStart, firstEnd, secondStart, secondEnd) {
+    return firstStart <= secondEnd && firstEnd >= secondStart
+}
+
+function isBlockingBooking(booking) {
+    return booking.status === 'approved' || booking.status === 'handed-over'
+}
+
+function validateDates(startDate, endDate) {
+    const today = new Date()
+    const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const datePattern = /^\d{4}-\d{2}-\d{2}$/
+    if (!datePattern.test(startDate) || !datePattern.test(endDate)) {
+        throw new Error('Please choose valid start and end dates.')
+    }
+    const isValidDate = (value) => {
+        const [year, month, day] = value.split('-').map(Number)
+        const date = new Date(year, month - 1, day)
+        return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+    }
+    if (!isValidDate(startDate) || !isValidDate(endDate)) {
+        throw new Error('Please choose valid start and end dates.')
+    }
+    if (startDate < todayString || endDate < startDate) {
+        throw new Error('Choose a start date today or later and an end date on or after it.')
+    }
+}
+
+export function getItemDateStatus(itemId, startDate, endDate) {
+    if (!startDate || !endDate) return { approved: false, pending: false }
+    const bookings = readStorage(BOOKINGS_KEY, []).filter((booking) =>
+        booking.itemId === itemId
+        && dateRangesOverlap(startDate, endDate, booking.startDate, booking.endDate))
+    return {
+        approved: bookings.some(isBlockingBooking),
+        pending: bookings.some((booking) => booking.status === 'requested'),
+    }
+}
+
+export function createBooking(itemId, { startDate, endDate, message }) {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    validateDates(startDate, endDate)
+    if (typeof message !== 'string' || !message.trim() || message.trim().length > 300) {
+        throw new Error('Add a short message of 1 to 300 characters.')
+    }
+
+    const items = readStorage(ITEMS_KEY, [])
+    const item = items.find((entry) => entry.id === itemId && entry.status === 'active')
+    if (!item) throw new Error('This item is no longer available.')
+    if (item.ownerId === user.id) throw new Error('You cannot request your own item.')
+
+    const bookings = readStorage(BOOKINGS_KEY, [])
+    const booking = {
+        id: createId(),
+        itemId: item.id,
+        title: item.title,
+        ownerId: item.ownerId,
+        ownerName: item.ownerName,
+        borrowerId: user.id,
+        borrowerName: user.name,
+        startDate,
+        endDate,
+        message: message.trim(),
+        status: 'requested',
+        createdAt: new Date().toISOString(),
+    }
+    bookings.unshift(booking)
+    writeStorage(BOOKINGS_KEY, bookings)
+    return booking
+}
+
+export function listMyBookings() {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    return readStorage(BOOKINGS_KEY, []).filter((booking) => booking.borrowerId === user.id)
+}
+
+export function listIncomingBookings() {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    return readStorage(BOOKINGS_KEY, []).filter((booking) => booking.ownerId === user.id)
+}
+
+export function respondToBooking(bookingId, response) {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    if (user.role !== 'owner' || !['approved', 'rejected'].includes(response)) {
+        throw new Error('Only the item owner can approve or reject a request.')
+    }
+
+    const bookings = readStorage(BOOKINGS_KEY, [])
+    const bookingIndex = bookings.findIndex((entry) =>
+        entry.id === bookingId && entry.ownerId === user.id)
+    if (bookingIndex < 0) throw new Error('That booking request could not be found.')
+    const booking = bookings[bookingIndex]
+    if (booking.status !== 'requested') throw new Error('This request has already been answered.')
+
+    if (response === 'approved') {
+        const conflict = bookings.some((other) =>
+            other.id !== booking.id
+            && other.itemId === booking.itemId
+            && isBlockingBooking(other)
+            && dateRangesOverlap(booking.startDate, booking.endDate, other.startDate, other.endDate))
+        if (conflict) throw new Error('Another approved booking overlaps these dates.')
+    }
+
+    bookings[bookingIndex] = {
+        ...booking,
+        status: response,
+        decidedBy: { id: user.id, name: user.name, at: new Date().toISOString() },
+    }
+    writeStorage(BOOKINGS_KEY, bookings)
+    return bookings[bookingIndex]
+}
+
+export function confirmBookingStep(bookingId, step) {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    if (step !== 'handover' && step !== 'return') throw new Error('That booking step is not valid.')
+
+    const bookings = readStorage(BOOKINGS_KEY, [])
+    const bookingIndex = bookings.findIndex((entry) =>
+        entry.id === bookingId && [entry.ownerId, entry.borrowerId].includes(user.id))
+    if (bookingIndex < 0) throw new Error('That booking could not be found.')
+
+    const booking = bookings[bookingIndex]
+    const requiredStatus = step === 'handover' ? 'approved' : 'handed-over'
+    if (booking.status !== requiredStatus) {
+        throw new Error(`This booking cannot be marked ${step === 'handover' ? 'handed over' : 'returned'} now.`)
+    }
+
+    const status = step === 'handover' ? 'handed-over' : 'returned'
+    const confirmation = { id: user.id, name: user.name, at: new Date().toISOString() }
+    bookings[bookingIndex] = {
+        ...booking,
+        status,
+        [step === 'handover' ? 'handoverConfirmedBy' : 'returnConfirmedBy']: confirmation,
+    }
+    writeStorage(BOOKINGS_KEY, bookings)
+    return bookings[bookingIndex]
+}
+
+export function rateBooking(bookingId, rating, feedback) {
+    const user = getCurrentUser()
+    if (!user) throw new Error('Please sign in again.')
+    const numericRating = Number(rating)
+    if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+        throw new Error('Choose a rating from 1 to 5.')
+    }
+
+    const bookings = readStorage(BOOKINGS_KEY, [])
+    const bookingIndex = bookings.findIndex((entry) =>
+        entry.id === bookingId && entry.borrowerId === user.id)
+    if (bookingIndex < 0) throw new Error('That booking could not be found.')
+    const booking = bookings[bookingIndex]
+    if (booking.status !== 'returned') throw new Error('You can rate a booking after it is returned.')
+    if (booking.rating) throw new Error('You have already rated this booking.')
+    if (typeof feedback !== 'string') throw new Error('Feedback must be text.')
+    if (feedback.trim().length > 500) throw new Error('Feedback must be 500 characters or fewer.')
+
+    bookings[bookingIndex] = {
+        ...booking,
+        rating: numericRating,
+        feedback: feedback.trim(),
+        ratedAt: new Date().toISOString(),
+    }
+    writeStorage(BOOKINGS_KEY, bookings)
+    return bookings[bookingIndex]
+}
+
 export function createItem(fields) {
     const user = getCurrentUser()
     if (!user) throw new Error('Please sign in again.')
@@ -187,8 +359,15 @@ function changeItem(itemId, update) {
 export function getHistory() {
     const user = getCurrentUser()
     if (!user) throw new Error('Please sign in again.')
+    const bookings = readStorage(BOOKINGS_KEY, [])
     return {
-        borrowed: user.borrowedHistory ?? [],
-        lending: user.lendingHistory ?? [],
+        borrowed: [
+            ...bookings.filter((booking) => booking.borrowerId === user.id),
+            ...(user.borrowedHistory ?? []),
+        ],
+        lending: [
+            ...bookings.filter((booking) => booking.ownerId === user.id),
+            ...(user.lendingHistory ?? []),
+        ],
     }
 }

@@ -14,6 +14,7 @@ export default function Navbar() {
             {user ? (
                 <div>
                     <Link to="/home">Explore</Link>
+                    <Link to="/bookings">My bookings</Link>
                     {user.role === 'owner' && <Link to="/owner">My listings</Link>}
                     <Link to="/profile">Profile</Link>
                     <button onClick={handleLogout}>Log out</button>
