@@ -1,8 +1,3 @@
-const ContactUs=()=>{
-    return(
-        <>
-        </>
-    )
+export default function ContactUs() {
+    return null
 }
-
-export default ContactUs;
