@@ -1,16 +1,25 @@
-# React + Vite
+# BorrowBox
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+BorrowBox is a small React app for sharing items with a local community. It includes account registration, a demo login, an owner dashboard, and a local item-browsing screen.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```sh
+npm install
+npm run dev
+```
 
-## React Compiler
+Use the demo account `demo@borrowbox.com` with password `demo1234`, or create an account. Accounts, profiles, and listings are stored in the browser's local storage, so this demo does not sync data between browsers or devices.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Data API
 
-## Expanding the Oxlint configuration
+`src/services/api.js` provides the local persistence API for user registration/login, profiles, owner listings, public listings, and borrowing/lending history. Replace this module with server-backed requests when a backend is available; local storage is for prototyping and is not production authentication or shared persistence.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Available listing fields are title, category, description, optional image URLs (one per line), condition, general location, and lending rules. Owners can edit, pause/resume, or remove their own listings.
+
+## Checks
+
+```sh
+npm run lint
+npm run build
+```

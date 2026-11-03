@@ -1,121 +1,43 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-// import { api } from '../services/api.js'
+import { login } from '../services/api.js'
 
-export default function Signup() {
-    const [form, setForm] = useState({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-    })
-    const [isSubmitting, setIsSubmitting] = useState(false)
+export default function Login() {
+    const [form, setForm] = useState({ email: '', password: '' })
     const [error, setError] = useState('')
     const navigate = useNavigate()
 
-    const handleChange = (event) => {
-        const { name, value } = event.target
-        setForm((current) => ({ ...current, [name]: value }))
-        if (error) setError('')
-    }
-
-    const handleSubmit = async (event) => {
+    const handleSubmit = async (event, useDemo = false) => {
         event.preventDefault()
-        if (isSubmitting) return
-
-        const name = form.name.trim()
-        const email = form.email.trim().toLowerCase()
-        const department = form.department.trim()
-
-        if (!name || !email || !department) {
-            setError('Please complete all fields.')
-            return
-        }
-
-        if (form.password.length < 8) {
-            setError('Choose a password with at least 8 characters.')
-            return
-        }
-
-        if (form.password !== form.confirmPassword) {
-            setError('Passwords do not match.')
-            return
-        }
-
         setError('')
-        setIsSubmitting(true)
-
+        try {
+            const user = await login(useDemo ? { email: 'demo@borrowbox.com', password: 'demo1234' } : form)
+            navigate(user.role === 'owner' ? '/owner' : '/home')
+        } catch (loginError) {
+            setError(loginError.message)
+        }
     }
 
     return (
-        <main>
-            <>
-
-                <form onSubmit={handleSubmit}>
-                    <label >Full name</label>
-                    <input
-                        id="signup-name"
-                        name="name"
-                        type="text"
-                        autoComplete="name"
-                        value={form.name}
-                        onChange={handleChange}
-                        required
-                        maxLength={100}
-                        disabled={isSubmitting}
-                    />
-
-                    <label>Email address</label>
-                    <input
-                        id="signup-email"
-                        name="email"
-                        type="email"
-                        autoComplete="email"
-                        value={form.email}
-                        onChange={handleChange}
-                        required
-                        maxLength={254}
-                        disabled={isSubmitting}
-                    />
-
-                    <label>Password</label>
-                    <input
-                        id="signup-password"
-                        name="password"
-                        type="password"
-                        autoComplete="new-password"
-                        value={form.password}
-                        onChange={handleChange}
-                        required
-                        minLength={8}
-                        disabled={isSubmitting}
-                    />
-                    <p>Use at least 8 characters.</p>
-
-                    <label>Confirm password</label>
-                    <input
-                        id="signup-confirm-password"
-                        name="confirmPassword"
-                        type="password"
-                        autoComplete="new-password"
-                        value={form.confirmPassword}
-                        onChange={handleChange}
-                        required
-                        minLength={8}
-                        disabled={isSubmitting}
-                    />
-
-
-                    <button type="submit" disabled={isSubmitting}>
-                        {isSubmitting ? 'Creating account…' : 'Create account'}
-                    </button>
-                </form>
-
-                <p>
-                    Already have an account? <Link to="/login">Sign in</Link>
-                </p>
-                <p><Link to="/">Back to home</Link></p>
-            </>
-        </main>
+        <section>
+            <Link to="/">BorrowBox</Link>
+            <h1>Welcome back</h1>
+            <p>Sign in to manage your BorrowBox activity.</p>
+            <form onSubmit={handleSubmit}>
+                <label htmlFor="login-email">Email address</label>
+                <input id="login-email" name="email" type="email" autoComplete="email" required
+                    value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+                <label htmlFor="login-password">Password</label>
+                <input id="login-password" name="password" type="password" autoComplete="current-password" required
+                    value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} />
+                {error && <p role="alert">{error}</p>}
+                <button type="submit">Sign in</button>
+            </form>
+            <button onClick={(event) => handleSubmit(event, true)}>
+                Continue with demo account
+            </button>
+            <p>New to BorrowBox? <Link to="/signup">Create an account</Link></p>
+            <p>Demo account: demo@borrowbox.com / demo1234</p>
+        </section>
     )
 }

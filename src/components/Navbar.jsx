@@ -1,21 +1,28 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { getCurrentUser, logout } from '../services/api.js'
+
 export default function Navbar() {
-    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const user = getCurrentUser()
     const navigate = useNavigate();
-    const logout = () => { localStorage.clear(); navigate('/login'); }
+    const handleLogout = () => {
+        logout()
+        navigate('/login')
+    }
     return (
-        <nav>
-            <Link to="/home"></Link>
+        <nav aria-label="Main navigation">
+            <Link to="/home">BorrowBox</Link>
             {user ? (
-                <>
-                    <Link to="/home">Dashboard</Link>
-                    <button onClick={logout}>Logout</button>
-                </>
+                <div>
+                    <Link to="/home">Explore</Link>
+                    {user.role === 'owner' && <Link to="/owner">My listings</Link>}
+                    <Link to="/profile">Profile</Link>
+                    <button onClick={handleLogout}>Log out</button>
+                </div>
             ) : (
-                <>
+                <div>
                     <Link to="/login">Login</Link>
                     <Link to="/signup">Signup</Link>
-                </>
+                </div>
             )}
         </nav>
     )
